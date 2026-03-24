@@ -1,9 +1,12 @@
 package main
 
 import (
+	"GoRestSQL/internal/handler"
 	"GoRestSQL/internal/repository"
 	"GoRestSQL/internal/service"
 	"database/sql"
+	"net/http"
+
 	_ "github.com/glebarez/go-sqlite"
 )
 
@@ -43,6 +46,11 @@ func main() {
 	defer db.Close()
 
 	paymentRepo := repository.NewSqlitePaymentRepository(db)
-	paymentService := service.NewPaymentServiceImpl(&paymentRepo)
+	paymentService := service.NewPaymentServiceImpl(paymentRepo)
+	paymentHandler := handler.NewPaymentHandler(paymentService)
+	router := handler.NewRouter(paymentHandler)
 
+	if err := http.ListenAndServe(":8080", router); err != nil {
+		panic(err)
+	}
 }
