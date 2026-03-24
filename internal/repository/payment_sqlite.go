@@ -14,6 +14,25 @@ func NewSqlitePaymentRepository(db *sql.DB) PaymentRepository {
 	return &SqlitePaymentRepository{db: db}
 }
 
+func (r *SqlitePaymentRepository) GetById(id int64) (*model.Payment, error) {
+	const query = `SELECT * FROM payments WHERE id = ?`
+
+	rows, err := r.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	var payment model.Payment
+	defer rows.Close()
+
+	for rows.Next() {
+		if err := rows.Scan(&payment.Person, &payment.Amount, &payment.Currency, &payment.Time); err != nil {
+			return nil, err
+		}
+		return &payment, nil
+	}
+	return nil, nil
+}
+
 func (r *SqlitePaymentRepository) Create(payment *model.Payment) (int64, error) {
 	const query = `INSERT INTO payments (person, amount, currency, time) VALUES (?, ?, ?, ?)`
 
@@ -57,7 +76,7 @@ func (r *SqlitePaymentRepository) Update(payment *model.Payment) (int64, error) 
 	return result.RowsAffected()
 }
 
-func (r *SqlitePaymentRepository) Delete(id int) (int64, error) {
+func (r *SqlitePaymentRepository) Delete(id int64) (int64, error) {
 	const query = `DELETE FROM payments WHERE id = ?`
 	result, err := r.db.Exec(query, id)
 	if err != nil {
