@@ -2,16 +2,31 @@ package repository
 
 import (
 	"GoRestSQL/internal/model"
-	"database/sql"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type SqlitePaymentRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewSqlitePaymentRepository(db *sql.DB) PaymentRepository {
-	return &SqlitePaymentRepository{db: db}
+func NewSqlitePaymentRepository() (PaymentRepository, *sqlx.DB, error) {
+	db, err := sqlx.Connect("sqlite", "payments.db")
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
+	if err = db.Ping(); err != nil {
+		return nil, nil, err
+	}
+
+	if _, err = db.Exec(schemaSQL); err != nil {
+		return nil, nil, err
+	}
+	return &SqlitePaymentRepository{db: db}, db, nil
 }
 
 func (r *SqlitePaymentRepository) GetById(id int64) (*model.Payment, error) {
