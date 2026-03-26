@@ -8,10 +8,10 @@ import (
 )
 
 type SqlitePaymentRepository struct {
-	db *sqlx.DB
+	DB *sqlx.DB
 }
 
-func NewSqlitePaymentRepository() (PaymentRepository, *sqlx.DB, error) {
+func NewSqlitePaymentRepository() (*SqlitePaymentRepository, error) {
 	db, err := sqlx.Connect("sqlite", "payments.db")
 	if err != nil {
 		panic(err)
@@ -20,19 +20,19 @@ func NewSqlitePaymentRepository() (PaymentRepository, *sqlx.DB, error) {
 		panic(err)
 	}
 	if err = db.Ping(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if _, err = db.Exec(schemaSQL); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return &SqlitePaymentRepository{db: db}, db, nil
+	return &SqlitePaymentRepository{DB: db}, nil
 }
 
 func (r *SqlitePaymentRepository) GetById(id int64) (*model.Payment, error) {
 	const query = `SELECT * FROM payments WHERE id = ?`
 
-	rows, err := r.db.Query(query, id)
+	rows, err := r.DB.Query(query, id)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (r *SqlitePaymentRepository) GetById(id int64) (*model.Payment, error) {
 func (r *SqlitePaymentRepository) Create(payment *model.Payment) (int64, error) {
 	const query = `INSERT INTO payments (person, amount, currency, time) VALUES (?, ?, ?, ?)`
 
-	result, err := r.db.Exec(query, payment.Person, payment.Amount, payment.Currency, time.Now())
+	result, err := r.DB.Exec(query, payment.Person, payment.Amount, payment.Currency, time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -62,7 +62,7 @@ func (r *SqlitePaymentRepository) Create(payment *model.Payment) (int64, error) 
 func (r *SqlitePaymentRepository) GetByPerson(person string) ([]model.Payment, error) {
 	const query = `SELECT * FROM payments WHERE person = ?`
 
-	rows, err := r.db.Query(query, person)
+	rows, err := r.DB.Query(query, person)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (r *SqlitePaymentRepository) GetByPerson(person string) ([]model.Payment, e
 func (r *SqlitePaymentRepository) Update(payment *model.Payment) (int64, error) {
 	const query = `UPDATE payments SET person = ?, amount = ?, currency = ? WHERE id = ?`
 
-	result, err := r.db.Exec(query, payment.Person, payment.Amount, payment.Currency, time.Now(), payment.Id)
+	result, err := r.DB.Exec(query, payment.Person, payment.Amount, payment.Currency, time.Now(), payment.Id)
 	if err != nil {
 		return 0, err
 	}
@@ -93,7 +93,7 @@ func (r *SqlitePaymentRepository) Update(payment *model.Payment) (int64, error) 
 
 func (r *SqlitePaymentRepository) Delete(id int64) (int64, error) {
 	const query = `DELETE FROM payments WHERE id = ?`
-	result, err := r.db.Exec(query, id)
+	result, err := r.DB.Exec(query, id)
 	if err != nil {
 		return 0, err
 	}

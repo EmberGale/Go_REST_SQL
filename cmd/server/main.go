@@ -9,16 +9,16 @@ import (
 	"os"
 
 	_ "github.com/glebarez/go-sqlite"
-	"github.com/jmoiron/sqlx"
 )
 
 func main() {
-	var db *sqlx.DB
-	paymentRepo, db, err := repository.NewSqlitePaymentRepository()
+
+	paymentRepo, err := repository.NewSqlitePaymentRepository()
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+
+	defer paymentRepo.DB.Close()
 	paymentService := service.NewPaymentServiceImpl(paymentRepo)
 	paymentHandler := handler.NewPaymentHandler(paymentService)
 	router := handler.NewRouter(paymentHandler)
