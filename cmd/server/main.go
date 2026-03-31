@@ -4,33 +4,83 @@ import (
 	"GoRestSQL/internal/handler"
 	"GoRestSQL/internal/repository"
 	"GoRestSQL/internal/service"
+	"GoRestSQL/pkg/config"
+	"GoRestSQL/pkg/db"
+	"GoRestSQL/pkg/logger"
+	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	_ "github.com/glebarez/go-sqlite"
+	"go.uber.org/zap"
 )
 
 func main() {
-
-	paymentRepo, err := repository.NewSqlitePaymentRepository()
+	// Загружаем конфигурацию
+	cfg, err := config.Load()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to load config: %w", err))
 	}
 
-	defer paymentRepo.DB.Close()
+	// Создаём логгер
+	log, err := logger.New(cfg.Logger.Level)
+	if err != nil {
+		panic(fmt.Errorf("failed to create logger: %w", err))
+	}
+	defer log.Sync()
+
+	log.Info("application starting", zap.String("port", cfg.Server.Port))
+
+	// Подключаемся к БД и применяем миграции
+	database, err := db.New(cfg.Database)
+	if err != nil {
+		log.Fatal("failed to connect to database", zap.Error(err))
+	}
+	defer database.Close()
+
+	log.Info("database connected and migrations applied")
+
+	// Создаём слои приложения
+	paymentRepo := repository.NewPostgreSQLPaymentRepository(database)
 	paymentService := service.NewPaymentServiceImpl(paymentRepo)
-	paymentHandler := handler.NewPaymentHandler(paymentService)
-	router := handler.NewRouter(paymentHandler)
+	paymentHandler := handler.NewPaymentHandler(paymentService, log)
+	router := handler.NewRouter(paymentHandler, log)
 
-	// Get port from environment variable
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	// Создаём HTTP сервер
+	addr := ":" + cfg.Server.Port
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
-	port = fmt.Sprintf(":%s", port)
 
-	if err := http.ListenAndServe(port, router); err != nil {
-		panic(err)
+	// Запускаем сервер в горутине
+	go func() {
+		log.Info("server starting", zap.String("addr", addr))
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal("server failed", zap.Error(err))
+		}
+	}()
+
+	// Ждём сигнал завершения
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Info("shutting down server...")
+
+	// Graceful shutdown с таймаутом
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("server forced to shutdown", zap.Error(err))
 	}
+
+	log.Info("server stopped")
 }

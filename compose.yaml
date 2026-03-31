@@ -10,27 +10,44 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   migrate:
-    image: pressly/goose:latest
+    build: .
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
-      GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: postgres://payment_DB:payment_user@postgres:5432/payment_DB?sslmode=disable
-      GOOSE_MIGRATION_DIR: /migrations
-    volumes:
-      - ./migrations:/migrations
-    command:
-      - up
+      APP_DATABASE_HOST: postgres
+      APP_DATABASE_PORT: 5432
+      APP_DATABASE_USER: payment_user
+      APP_DATABASE_PASSWORD: payment_password
+      APP_DATABASE_DBNAME: payment_DB
+      APP_DATABASE_SSLMODE: disable
+      APP_DATABASE_MIGRATIONS_PATH: /app/migrations
+      APP_LOGGER_LEVEL: info
+      APP_SERVER_PORT: 8080
+    command: ["./server"]
 
   api:
     build: .
     depends_on:
-      - postgres
-      - migrate
+      migrate:
+        condition: service_completed_successfully
     environment:
-      DB_URL: postgres://payment_DB:payment_user@postgres:5432/payment_DB?sslmode=disable
+      APP_DATABASE_HOST: postgres
+      APP_DATABASE_PORT: 5432
+      APP_DATABASE_USER: payment_user
+      APP_DATABASE_PASSWORD: payment_password
+      APP_DATABASE_DBNAME: payment_DB
+      APP_DATABASE_SSLMODE: disable
+      APP_DATABASE_MIGRATIONS_PATH: /app/migrations
+      APP_LOGGER_LEVEL: info
+      APP_SERVER_PORT: 8080
     ports:
       - "8080:8080"
 

@@ -1,0 +1,11 @@
+-- +goose Up
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    person VARCHAR(255) NOT NULL,
+    amount INTEGER NOT NULL,
+    currency VARCHAR(10) NOT NULL,
+    time TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS payments;

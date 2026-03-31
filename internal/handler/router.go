@@ -2,24 +2,49 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 )
 
-func NewRouter(handler *PaymentHandler) http.Handler {
-	r := chi.NewRouter()
+// NewRouter создаёт новый HTTP роутер с middleware логирования
+func NewRouter(handler *PaymentHandler, logger *zap.Logger) http.Handler {
+	mux := http.NewServeMux()
 
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	// Middleware для логирования запросов
+	loggingMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
-	r.Route("/payment", func(r chi.Router) {
-		r.Post("/", handler.Create)
-		r.Put("/", handler.Update)
-		r.Delete("/", handler.Delete)
-		r.Get("/byId", handler.GetById)
-		r.Get("/byPerson", handler.GetByPerson)
-	})
+			next.ServeHTTP(wrapped, r)
 
-	return r
+			logger.Info("request completed",
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path),
+				zap.Int("status", wrapped.statusCode),
+				zap.Duration("duration", time.Since(start)),
+			)
+		})
+	}
+
+	// Регистрируем маршруты
+	mux.HandleFunc("POST /payment/", handler.Create)
+	mux.HandleFunc("PUT /payment/", handler.Update)
+	mux.HandleFunc("DELETE /payment/", handler.Delete)
+	mux.HandleFunc("GET /payment/byId", handler.GetById)
+	mux.HandleFunc("GET /payment/byPerson", handler.GetByPerson)
+
+	return loggingMiddleware(mux)
+}
+
+// responseWriter обёртка для перехвата статуса ответа
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
