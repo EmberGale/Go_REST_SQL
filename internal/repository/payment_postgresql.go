@@ -24,7 +24,7 @@ func NewPostgreSQLPaymentRepository() (PaymentRepository, *sqlx.DB, error) {
 	if _, err = db.Exec(schemaSQL); err != nil {
 		return nil, nil, err
 	}
-	return &SqlitePaymentRepository{db: db}, db, nil
+	return &PostgreSQLPaymentRepository{db: db}, db, nil
 }
 
 func (p *PostgreSQLPaymentRepository) Create(payment *model.Payment) (int64, error) {
