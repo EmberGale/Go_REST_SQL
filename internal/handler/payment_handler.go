@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
@@ -110,10 +111,10 @@ func (pH *PaymentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := r.URL.Query().Get("id")
+	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
-		pH.logger.Error("id query parameter is missing")
-		http.Error(w, "id query parameter is required", http.StatusBadRequest)
+		pH.logger.Error("id url parameter is missing")
+		http.Error(w, "id url parameter is required", http.StatusBadRequest)
 		return
 	}
 
@@ -141,10 +142,10 @@ func (pH *PaymentHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (pH *PaymentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	pH.logger.Debug("deleting payment", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 
-	idStr := r.URL.Query().Get("id")
+	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
-		pH.logger.Error("id query parameter is missing")
-		http.Error(w, "id query parameter is required", http.StatusBadRequest)
+		pH.logger.Error("id url parameter is missing")
+		http.Error(w, "id url parameter is required", http.StatusBadRequest)
 		return
 	}
 

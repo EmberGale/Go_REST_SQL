@@ -3,6 +3,7 @@ module GoRestSQL
 go 1.25.0
 
 require (
+	github.com/go-chi/chi/v5 v5.2.5
 	github.com/lib/pq v1.12.1
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/spf13/viper v1.21.0
