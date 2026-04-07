@@ -7,23 +7,26 @@ import (
 
 	"GoRestSQL/pkg/config"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 )
 
 // DB определяет интерфейс для работы с базой данных
 type DB interface {
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
+	NamedQuery(query string, arg interface{}) (*sqlx.Rows, error)
+	NamedExec(query string, arg interface{}) (sql.Result, error)
+	Get(dest interface{}, query string, args ...interface{}) error
+	Select(dest interface{}, query string, args ...interface{}) error
 	Exec(query string, args ...interface{}) (sql.Result, error)
-	Begin() (*sql.Tx, error)
+	Beginx() (*sqlx.Tx, error)
 	Close() error
 	Ping() error
 }
 
 // Database реализует интерфейс DB
 type Database struct {
-	*sql.DB
+	*sqlx.DB
 }
 
 // New создаёт новое подключение к БД, проверяет его и применяет миграции
@@ -40,7 +43,7 @@ func New(cfg config.DatabaseConfig) (*Database, error) {
 	)
 
 	// Открываем подключение
-	db, err := sql.Open("postgres", dsn)
+	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
@@ -53,7 +56,7 @@ func New(cfg config.DatabaseConfig) (*Database, error) {
 
 	// Применяем миграции
 	migrationsPath := filepath.Clean(cfg.MigrationsPath)
-	if err := goose.Up(db, migrationsPath); err != nil {
+	if err := goose.Up(db.DB, migrationsPath); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}

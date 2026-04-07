@@ -18,55 +18,54 @@ func NewPostgreSQLPaymentRepository(database db.DB) *PostgreSQLPaymentRepository
 
 func (p *PostgreSQLPaymentRepository) Create(payment *model.Payment) (int64, error) {
 	var id int64
-	query := `INSERT INTO payments (person, amount, currency, time) VALUES ($1, $2, $3, $4) RETURNING id`
-	err := p.DB.QueryRow(query, payment.Person, payment.Amount, payment.Currency, time.Now()).Scan(&id)
+	query := `INSERT INTO payments (person, amount, currency, time) VALUES (:person, :amount, :currency, :time) RETURNING id`
+	payment.Time = time.Now()
+	rows, err := p.DB.NamedQuery(query, payment)
 	if err != nil {
 		return 0, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		if err := rows.Scan(&id); err != nil {
+			return 0, err
+		}
 	}
 	return id, nil
 }
 
 func (p *PostgreSQLPaymentRepository) GetById(id int64) (*model.Payment, error) {
 	var payment model.Payment
-	err := p.DB.QueryRow("SELECT id, person, amount, currency, time FROM payments WHERE id = $1", id).
-		Scan(&payment.Id, &payment.Person, &payment.Amount, &payment.Currency, &payment.Time)
-	if err != nil {
+	query := "SELECT id, person, amount, currency, time FROM payments WHERE id = $1"
+	if err := p.DB.Get(&payment, query, id); err != nil {
 		return nil, err
 	}
 	return &payment, nil
 }
 
 func (p *PostgreSQLPaymentRepository) GetByPerson(person string) ([]model.Payment, error) {
-	rows, err := p.DB.Query("SELECT id, person, amount, currency, time FROM payments WHERE person = $1", person)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
+	query := "SELECT id, person, amount, currency, time FROM payments WHERE person = $1"
 	var payments []model.Payment
-	for rows.Next() {
-		var payment model.Payment
-		if err := rows.Scan(&payment.Id, &payment.Person, &payment.Amount, &payment.Currency, &payment.Time); err != nil {
-			return nil, err
-		}
-		payments = append(payments, payment)
+	if err := p.DB.Select(&payments, query, person); err != nil {
+		return nil, err
 	}
 	return payments, nil
 }
 
 func (p *PostgreSQLPaymentRepository) Update(payment *model.Payment) (int64, error) {
-	query := `UPDATE payments SET person = $1, amount = $2, currency = $3, time = $4 WHERE id = $5`
-	res, err := p.DB.Exec(query, payment.Person, payment.Amount, payment.Currency, time.Now(), payment.Id)
+	query := `UPDATE payments SET person = :person, amount = :amount, currency = :currency, time = :time WHERE id = :id`
+	payment.Time = time.Now()
+	result, err := p.DB.NamedExec(query, payment)
 	if err != nil {
 		return 0, err
 	}
-	return res.RowsAffected()
+	return result.RowsAffected()
 }
 
 func (p *PostgreSQLPaymentRepository) Delete(id int64) (int64, error) {
-	res, err := p.DB.Exec("DELETE FROM payments WHERE id = $1", id)
+	result, err := p.DB.Exec("DELETE FROM payments WHERE id = $1", id)
 	if err != nil {
 		return 0, err
 	}
-	return res.RowsAffected()
+	return result.RowsAffected()
 }
