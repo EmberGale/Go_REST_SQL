@@ -8,6 +8,7 @@ import (
 	"GoRestSQL/pkg/db"
 	"GoRestSQL/pkg/logger"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -62,7 +63,7 @@ func main() {
 	// Запускаем сервер в горутине
 	go func() {
 		log.Info("server starting", zap.String("addr", addr))
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal("server failed", zap.Error(err))
 		}
 	}()

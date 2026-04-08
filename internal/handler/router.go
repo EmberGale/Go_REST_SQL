@@ -42,6 +42,7 @@ func NewRouter(handler *PaymentHandler, logger *zap.Logger) http.Handler {
 		r.Delete("/{id}", handler.Delete)
 		r.Get("/byId", handler.GetById)
 		r.Get("/byPerson", handler.GetByPerson)
+		r.Get("/payment/{id}/inCurrency")
 	})
 
 	return r
