@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// NewRouter создаёт новый HTTP роутер с middleware логирования
+// NewRouter создаёт новый HTTP роутер с middleware логированием
 func NewRouter(handler *PaymentHandler, logger *zap.Logger) http.Handler {
 	r := chi.NewRouter()
 
@@ -20,10 +20,11 @@ func NewRouter(handler *PaymentHandler, logger *zap.Logger) http.Handler {
 
 	// Middleware для логирования запросов
 	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fn := func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
+			// После выполнения вызываем следующий Handler, через next
 			next.ServeHTTP(wrapped, r)
 
 			logger.Info("request completed",
@@ -32,7 +33,8 @@ func NewRouter(handler *PaymentHandler, logger *zap.Logger) http.Handler {
 				zap.Int("status", wrapped.statusCode),
 				zap.Duration("duration", time.Since(start)),
 			)
-		})
+		}
+		return http.HandlerFunc(fn)
 	})
 
 	// Регистрируем маршруты с chi
@@ -42,7 +44,7 @@ func NewRouter(handler *PaymentHandler, logger *zap.Logger) http.Handler {
 		r.Delete("/{id}", handler.Delete)
 		r.Get("/byId", handler.GetById)
 		r.Get("/byPerson", handler.GetByPerson)
-		r.Get("/payment/{id}/inCurrency")
+		r.Get("/payment/{id}/inCurrency", handler.GetPaymentInCurrency)
 	})
 
 	return r
