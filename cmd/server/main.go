@@ -20,7 +20,6 @@ import (
 )
 
 func main() {
-	http.HandleFunc()
 
 	// Загружаем конфигурацию
 	cfg, err := config.Load()
