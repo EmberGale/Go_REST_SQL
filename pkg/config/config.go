@@ -12,6 +12,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Logger   LoggerConfig   `mapstructure:"logger"`
 	Server   ServerConfig   `mapstructure:"server"`
+	Kafka    KafkaConfig    `mapstructure:"kafka"`
 }
 
 // DatabaseConfig содержит настройки подключения к БД
@@ -33,6 +34,12 @@ type LoggerConfig struct {
 // ServerConfig содержит настройки сервера
 type ServerConfig struct {
 	Port string `mapstructure:"port"`
+}
+
+type KafkaConfig struct {
+	BootstrapServers string `mapstructure:"bootstrapServers"`
+	Acks             string `mapstructure:"acks"`
+	ClientId         string `mapstructure:"clientId"`
 }
 
 // Load загружает конфигурацию из .env файла или переменных окружения

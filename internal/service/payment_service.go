@@ -3,6 +3,7 @@ package service
 import (
 	"GoRestSQL/internal/model"
 	"GoRestSQL/internal/repository"
+	"GoRestSQL/pkg/kafka"
 )
 
 type PaymentService interface {
@@ -14,11 +15,13 @@ type PaymentService interface {
 }
 
 type PaymentServiceImpl struct {
-	repo repository.PaymentRepository
+	repo          repository.PaymentRepository
+	kafkaProducer *kafka.Producer
 }
 
-func NewPaymentServiceImpl(repo repository.PaymentRepository) *PaymentServiceImpl {
-	return &PaymentServiceImpl{repo: repo}
+func NewPaymentServiceImpl(repo repository.PaymentRepository, kafkaProducer *kafka.Producer) *PaymentServiceImpl {
+	return &PaymentServiceImpl{repo: repo,
+		kafkaProducer: kafkaProducer}
 }
 
 func (p *PaymentServiceImpl) UpdatePayment(payment *model.Payment) (int64, error) {
@@ -30,6 +33,7 @@ func (p *PaymentServiceImpl) DeletePayment(paymentID int64) (int64, error) {
 }
 
 func (p *PaymentServiceImpl) CreatePayment(payment *model.Payment) (int64, error) {
+
 	return p.repo.Create(payment)
 }
 
