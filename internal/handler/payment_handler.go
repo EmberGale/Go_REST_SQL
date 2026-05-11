@@ -44,7 +44,7 @@ func (pH *PaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	pH.logger.Info("payment created", zap.Int64("id", id))
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("Payment " + strconv.FormatInt(id, 10)))
 }
 
@@ -125,7 +125,7 @@ func (pH *PaymentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payment.Id = int(id)
+	payment.Id = id
 	updatedID, err := pH.service.UpdatePayment(&payment)
 	if err != nil {
 		pH.logger.Error("failed to update payment", zap.Int64("id", id), zap.Error(err))

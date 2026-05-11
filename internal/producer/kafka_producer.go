@@ -9,7 +9,7 @@ import (
 
 //TODO: logger
 
-func ProduceMessage(message *model.Payment) {
+func ProduceMessage(message *model.Payment) error {
 	paymentMessage := kafka.PaymentCreatedMessage{
 		EventID:   strconv.Itoa(payment.Id),
 		EventType: "PaymentCreated",
@@ -18,6 +18,6 @@ func ProduceMessage(message *model.Payment) {
 	}
 	err := p.kafkaProducer.SendPaymentCreated(&paymentMessage)
 	if err != nil {
-		return 0, err
+		return err
 	}
 }

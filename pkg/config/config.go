@@ -13,6 +13,7 @@ type Config struct {
 	Logger   LoggerConfig   `mapstructure:"logger"`
 	Server   ServerConfig   `mapstructure:"server"`
 	Kafka    KafkaConfig    `mapstructure:"kafka"`
+	Relay    RelayConfig    `mapstructure:"relay"`
 }
 
 // DatabaseConfig содержит настройки подключения к БД
@@ -37,9 +38,20 @@ type ServerConfig struct {
 }
 
 type KafkaConfig struct {
-	BootstrapServers string `mapstructure:"bootstrapServers"`
-	Acks             string `mapstructure:"acks"`
-	ClientId         string `mapstructure:"clientId"`
+	BootstrapServers string   `mapstructure:"bootstrapServers"`
+	Acks             string   `mapstructure:"acks"`
+	ClientId         string   `mapstructure:"clientId"`
+	Brokers          []string `mapstructure:"brokers"`
+}
+
+type RelayConfig struct {
+	WorkerCount   int     `mapstructure:"workerCount"`
+	BatchSize     int     `mapstructure:"batchSize"`
+	PollInterval  int     `mapstructure:"pollInterval"`
+	MaxAttempts   int     `mapstructure:"maxAttempts"`
+	BaseDelay     int     `mapstructure:"baseDelay"`
+	MaxDelay      int     `mapstructure:"maxDelay"`
+	JitterPercent float64 `mapstructure:"jitterPercent"`
 }
 
 // Load загружает конфигурацию из .env файла или переменных окружения
