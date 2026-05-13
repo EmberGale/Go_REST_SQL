@@ -45,6 +45,9 @@ func main() {
 
 	log.Info("database connected and migrations applied")
 
+	// Init empty context
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Kafka
 	kafkaProducer, err := producer.NewSaramaProducer(cfg.Kafka.Brokers, nil, log)
 	if err != nil {
@@ -54,7 +57,7 @@ func main() {
 
 	// Создаём слои приложения
 	paymentRepo := repository.NewPostgreSQLPaymentRepository(database)
-	paymentService := service.NewPaymentServiceImpl(paymentRepo, kafkaProducer, log)
+	paymentService := service.NewPaymentServiceImpl(ctx, paymentRepo, kafkaProducer, log)
 	paymentHandler := handler.NewPaymentHandler(paymentService, log)
 	router := handler.NewRouter(paymentHandler, log)
 
@@ -84,7 +87,7 @@ func main() {
 	log.Info("shutting down server...")
 
 	// Graceful shutdown с таймаутом
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
