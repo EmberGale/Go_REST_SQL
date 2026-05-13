@@ -1,8 +1,11 @@
 package relay
 
 import (
+	"GoRestSQL/internal/model"
+	"GoRestSQL/pkg/db"
 	"GoRestSQL/pkg/kafka"
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -26,16 +29,18 @@ type Relay struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
 	wg            sync.WaitGroup
+	db            db.DB
 }
 
-func NewRelay(config RelayConfig, kafkaProduce *kafka.Producer, log *zap.Logger) *Relay {
+func NewRelay(config RelayConfig, kafkaProduce *kafka.Producer, log *zap.Logger, db db.DB) *Relay {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Relay{
 		config:        config,
-		logger:        zap.NewNop(),
+		logger:        log,
 		ctx:           ctx,
 		cancel:        cancel,
 		kafkaProducer: kafkaProduce,
+		db:            db,
 	}
 }
 
@@ -67,14 +72,47 @@ func (r *Relay) worker(id int) {
 		case <-r.ctx.Done():
 			r.logger.Info("worker stopping" + strconv.Itoa(id))
 			return
-		}
-		case<- ticker.C:
+
+		case <-ticker.C:
 			r.processBatch(id)
+		}
 	}
 }
 
 func (r *Relay) processBatch(id int) {
 	defer r.wg.Done()
 	r.logger.Info("process batch" + strconv.Itoa(id))
+
+	query_tasks := `
+	UPDATE outbox_events
+	SET status = 'processing'
+	WHERE id IN (
+		SELECT id 
+		FROM outbox_events 
+		WHERE status = 'pending' AND next_retry_at <= NOW()
+		ORDER BY created_at ASC
+		LIMIT 10
+		FOR UPDATE SKIP LOCKED
+	)
+	RETURNING id, payment_id, payload, attempts, topic;
+	`
+	var events []model.OutboxEvent
+	err := r.db.Select(&events, query_tasks)
+	if err != nil {
+		r.logger.Error("failed to fetch events", zap.Error(err))
+	}
+
+	for _, event := range events {
+		msg := kafka.Message{
+			Topic: event.Topic,
+			Key:   []byte(fmt.Sprintf("%d", event.ID)),
+			Value: []byte(event.Payload),
+		}
+
+		err := r.kafkaProducer.SendMessage(r.ctx, msg)
+		if err != nil {
+			r.logger.Error("failed to send message", zap.Error(err))
+		}
+	}
 
 }

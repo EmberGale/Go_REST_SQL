@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS outbox_events (
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     attempts INTEGER NOT NULL DEFAULT 0,
     next_retry_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    topic VARCHAR(255)
 );
 
 -- Индекс для быстрого поиска pending событий с next_retry_at <= NOW()

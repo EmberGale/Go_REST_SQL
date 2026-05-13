@@ -19,4 +19,5 @@ type OutboxEvent struct {
 	Attempts    int          `json:"attempts"`
 	NextRetryAt time.Time    `json:"next_retry_at"`
 	CreatedAt   time.Time    `json:"created_at"`
+	Topic       string       `json:"topic"`
 }
