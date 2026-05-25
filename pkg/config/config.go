@@ -1,8 +1,8 @@
 package config
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -57,24 +57,20 @@ type RelayConfig struct {
 
 // Load загружает конфигурацию из .env файла или переменных окружения
 func Load() (*Config, error) {
-	err := godotenv.Load(".env")
+	err := godotenv.Load()
 	if err != nil {
-		fmt.Println("Error loading .env file")
-		return nil, err
+		fmt.Println("No .env file found, falling back to environment variables")
 	}
-	viper.SetConfigFile(".env")
-	viper.SetConfigType("env")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("./")
 
 	// Чтение переменных окружения с префиксом APP_
-	viper.SetEnvPrefix("APP")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.SetEnvPrefix("APP_")
 	viper.AutomaticEnv()
 
 	// Попытка прочитать .env файл (не критично, если не найдён)
+	// Попытка прочитать файл конфигурации Viper (не критично, если не найден)
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		var configFileNotFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFound) {
 			return nil, fmt.Errorf("error reading config file: %w", err)
 		}
 	}

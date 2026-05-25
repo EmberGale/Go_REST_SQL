@@ -29,68 +29,47 @@ services:
       timeout: 5s
       retries: 5
 
+  kafdrop: # Kafka Web UI
+    image: obsidiandynamics/kafdrop
+    container_name: payment-kafdrop
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:9092" # Connect to Kafka service by name
+      JVM_OPTS: "-Xms32M -Xmx64M" # Optional JVM limits
+      SERVER_PORT: "9000"
+
   postgres:
     image: postgres:16
     container_name: payment-postgres
     environment:
-      POSTGRES_DB: payment_DB
-      POSTGRES_USER: payment_user
-      POSTGRES_PASSWORD: payment_password
+      POSTGRES_DB: ${APP_DATABASE_DBNAME}
+      POSTGRES_USER: ${APP_DATABASE_USER}
+      POSTGRES_PASSWORD: ${APP_DATABASE_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_DB"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DATABASE_USER} -d ${APP_DATABASE_DBNAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  migrate:
+  api:
     build: .
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    environment:
-      # Database
-      APP_DATABASE_HOST: postgres
-      APP_DATABASE_PORT: 5432
-      APP_DATABASE_USER: payment_user
-      APP_DATABASE_PASSWORD: payment_password
-      APP_DATABASE_DBNAME: payment_DB
-      APP_DATABASE_SSLMODE: disable
-      APP_DATABASE_MIGRATIONS_PATH: /app/migrations
-      # Logger / Server
-      APP_LOGGER_LEVEL: info
-      APP_SERVER_PORT: 8080
-      # Kafka
-      APP_KAFKA_BROKERS: kafka:9092
-      APP_KAFKA_ACKS: all
-      APP_KAFKA_CLIENT_ID: payment-service
-    command: ["./server"]
-
-  api:
-    build: .
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    environment:
-      APP_DATABASE_HOST: postgres
-      APP_DATABASE_PORT: 5432
-      APP_DATABASE_USER: payment_user
-      APP_DATABASE_PASSWORD: payment_password
-      APP_DATABASE_DBNAME: payment_DB
-      APP_DATABASE_SSLMODE: disable
-      APP_DATABASE_MIGRATIONS_PATH: /app/migrations
-      APP_LOGGER_LEVEL: info
-      APP_SERVER_PORT: 8080
-      APP_KAFKA_BROKERS: kafka:9092
-      APP_KAFKA_ACKS: all
-      APP_KAFKA_CLIENT_ID: payment-service
     ports:
-      - "8080:8080"
+      - "${APP_SERVER_PORT:-8080}:8080"
+    env_file:
+      - .env
 
 volumes:
   postgres_data:
