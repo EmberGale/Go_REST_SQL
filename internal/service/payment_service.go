@@ -20,11 +20,11 @@ type PaymentService interface {
 type PaymentServiceImpl struct {
 	repo          repository.PaymentRepository
 	kafkaProducer kafka.Producer
-	log           *zap.Logger
+	log           *zap.SugaredLogger
 	ctx           context.Context
 }
 
-func NewPaymentServiceImpl(ctx context.Context, repo repository.PaymentRepository, kafkaProducer kafka.Producer, log *zap.Logger) *PaymentServiceImpl {
+func NewPaymentServiceImpl(ctx context.Context, repo repository.PaymentRepository, kafkaProducer kafka.Producer, log *zap.SugaredLogger) *PaymentServiceImpl {
 	return &PaymentServiceImpl{
 		repo:          repo,
 		kafkaProducer: kafkaProducer,

@@ -1,4 +1,34 @@
 services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: payment-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: payment-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: postgres:16
     container_name: payment-postgres
@@ -21,7 +51,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
+      # Database
       APP_DATABASE_HOST: postgres
       APP_DATABASE_PORT: 5432
       APP_DATABASE_USER: payment_user
@@ -29,8 +62,13 @@ services:
       APP_DATABASE_DBNAME: payment_DB
       APP_DATABASE_SSLMODE: disable
       APP_DATABASE_MIGRATIONS_PATH: /app/migrations
+      # Logger / Server
       APP_LOGGER_LEVEL: info
       APP_SERVER_PORT: 8080
+      # Kafka
+      APP_KAFKA_BROKERS: kafka:9092
+      APP_KAFKA_ACKS: all
+      APP_KAFKA_CLIENT_ID: payment-service
     command: ["./server"]
 
   api:
@@ -48,6 +86,9 @@ services:
       APP_DATABASE_MIGRATIONS_PATH: /app/migrations
       APP_LOGGER_LEVEL: info
       APP_SERVER_PORT: 8080
+      APP_KAFKA_BROKERS: kafka:9092
+      APP_KAFKA_ACKS: all
+      APP_KAFKA_CLIENT_ID: payment-service
     ports:
       - "8080:8080"
 

@@ -14,11 +14,11 @@ import (
 // PaymentHandler обрабатывает HTTP-запросы для платежей
 type PaymentHandler struct {
 	service service.PaymentService
-	logger  *zap.Logger
+	logger  *zap.SugaredLogger
 }
 
 // NewPaymentHandler создаёт новый хендлер с логгером
-func NewPaymentHandler(service service.PaymentService, logger *zap.Logger) *PaymentHandler {
+func NewPaymentHandler(service service.PaymentService, logger *zap.SugaredLogger) *PaymentHandler {
 	return &PaymentHandler{
 		service: service,
 		logger:  logger,

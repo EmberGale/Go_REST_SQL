@@ -12,11 +12,11 @@ import (
 
 type saramaProducer struct {
 	syncProducer sarama.SyncProducer
-	log          *zap.Logger
+	log          *zap.SugaredLogger
 }
 
 // NewSaramaProducer creates a concrete Kafka producer backed by Sarama.
-func NewSaramaProducer(brokers []string, config *sarama.Config, logger *zap.Logger) (kafka.Producer, error) {
+func NewSaramaProducer(brokers []string, config *sarama.Config, logger *zap.SugaredLogger) (kafka.Producer, error) {
 	if config == nil {
 		config = sarama.NewConfig()
 		config.Producer.Return.Successes = true

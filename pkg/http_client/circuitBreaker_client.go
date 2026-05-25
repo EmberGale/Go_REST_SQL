@@ -49,7 +49,7 @@ func (c *CircuitBreaker) Do(req *http.Request) (*http.Response, error) {
 		}
 
 		if resp.StatusCode >= 500 {
-			return resp, fmt.Errorf("Server error: %d", resp.StatusCode)
+			return resp, fmt.Errorf("server error: %d", resp.StatusCode)
 		}
 		return resp, nil
 	})

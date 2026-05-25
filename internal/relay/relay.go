@@ -2,6 +2,7 @@ package relay
 
 import (
 	"GoRestSQL/internal/model"
+	"GoRestSQL/pkg/config"
 	"GoRestSQL/pkg/db"
 	"GoRestSQL/pkg/kafka"
 	"context"
@@ -13,26 +14,17 @@ import (
 	"go.uber.org/zap"
 )
 
-type RelayConfig struct {
-	WorkerCount   int           `mapstructure:"worker_count"`
-	BatchSize     int           `mapstructure:"batch_size"`
-	PollInterval  time.Duration `mapstructure:"poll_interval"`
-	MaxAttempts   int           `mapstructure:"max_attempts"`
-	BaseDelay     time.Duration `mapstructure:"base_delay"`
-	MaxDelay      time.Duration `mapstructure:"max_delay"`
-	JitterPercent float64       `mapstructure:"jitter_percent"`
-}
 type Relay struct {
-	config        RelayConfig
-	kafkaProducer *kafka.Producer
-	logger        *zap.Logger
+	config        config.RelayConfig
+	kafkaProducer kafka.Producer
+	logger        *zap.SugaredLogger
 	ctx           context.Context
 	cancel        context.CancelFunc
 	wg            sync.WaitGroup
 	db            db.DB
 }
 
-func NewRelay(config RelayConfig, kafkaProduce *kafka.Producer, log *zap.Logger, db db.DB) *Relay {
+func NewRelay(config config.RelayConfig, kafkaProduce kafka.Producer, log *zap.SugaredLogger, db db.DB) *Relay {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Relay{
 		config:        config,

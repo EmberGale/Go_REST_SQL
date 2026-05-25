@@ -21,10 +21,10 @@ type RetryConfig struct {
 type RetryClient struct {
 	delegate HTTPClient
 	config   RetryConfig
-	logger   *zap.Logger
+	logger   *zap.SugaredLogger
 }
 
-func NewRetryClient(delegate HTTPClient, config RetryConfig, logger *zap.Logger) *RetryClient {
+func NewRetryClient(delegate HTTPClient, config RetryConfig, logger *zap.SugaredLogger) *RetryClient {
 	if config.MaxRetries == 0 {
 		config.MaxRetries = 3
 	}

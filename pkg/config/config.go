@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -38,25 +40,29 @@ type ServerConfig struct {
 }
 
 type KafkaConfig struct {
-	BootstrapServers string   `mapstructure:"bootstrapServers"`
-	Acks             string   `mapstructure:"acks"`
-	ClientId         string   `mapstructure:"clientId"`
-	Brokers          []string `mapstructure:"brokers"`
+	Acks     string   `mapstructure:"acks"`
+	ClientId string   `mapstructure:"client_id"`
+	Brokers  []string `mapstructure:"brokers"`
 }
 
 type RelayConfig struct {
-	WorkerCount   int     `mapstructure:"workerCount"`
-	BatchSize     int     `mapstructure:"batchSize"`
-	PollInterval  int     `mapstructure:"pollInterval"`
-	MaxAttempts   int     `mapstructure:"maxAttempts"`
-	BaseDelay     int     `mapstructure:"baseDelay"`
-	MaxDelay      int     `mapstructure:"maxDelay"`
-	JitterPercent float64 `mapstructure:"jitterPercent"`
+	WorkerCount   int           `mapstructure:"worker_count"`
+	BatchSize     int           `mapstructure:"batch_size"`
+	PollInterval  time.Duration `mapstructure:"poll_interval"`
+	MaxAttempts   int           `mapstructure:"max_attempts"`
+	BaseDelay     int           `mapstructure:"base_delay"`
+	MaxDelay      int           `mapstructure:"max_delay"`
+	JitterPercent float64       `mapstructure:"jitter_percent"`
 }
 
 // Load загружает конфигурацию из .env файла или переменных окружения
 func Load() (*Config, error) {
-	viper.SetConfigName(".env")
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("Error loading .env file")
+		return nil, err
+	}
+	viper.SetConfigFile(".env")
 	viper.SetConfigType("env")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./")
@@ -89,28 +95,28 @@ func Load() (*Config, error) {
 // validateConfig проверяет наличие обязательных переменных
 func validateConfig(cfg *Config) error {
 	if cfg.Database.Host == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_HOST is not set")
+		return fmt.Errorf("required env variable cfg.Database.Host is not set")
 	}
 	if cfg.Database.Port == 0 {
-		return fmt.Errorf("required env variable APP_DATABASE_PORT is not set")
+		return fmt.Errorf("required env variable cfg.Database.Port is not set")
 	}
 	if cfg.Database.User == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_USER is not set")
+		return fmt.Errorf("required env variable cfg.Database.User is not set")
 	}
 	if cfg.Database.Password == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_PASSWORD is not set")
+		return fmt.Errorf("required env variable cfg.Database.Password is not set")
 	}
 	if cfg.Database.DBName == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_DBNAME is not set")
+		return fmt.Errorf("required env variable cfg.Database.DBName is not set")
 	}
 	if cfg.Database.MigrationsPath == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_MIGRATIONS_PATH is not set")
+		return fmt.Errorf("required env variable cfg.Database.MigrationsPath is not set")
 	}
 	if cfg.Server.Port == "" {
-		return fmt.Errorf("required env variable APP_SERVER_PORT is not set")
+		return fmt.Errorf("required env variable cfg.Server.Port is not set")
 	}
 	if cfg.Logger.Level == "" {
-		return fmt.Errorf("required env variable APP_LOGGER_LEVEL is not set")
+		return fmt.Errorf("required env variable cfg.Logger.Level is not set")
 	}
 	return nil
 }

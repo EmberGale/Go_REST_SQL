@@ -59,7 +59,8 @@ func main() {
 	// Создаём слои приложения
 	paymentRepo := repository.NewPostgreSQLPaymentRepository(database)
 	paymentService := service.NewPaymentServiceImpl(ctx, paymentRepo, kafkaProducer, log)
-	relayOutbox := relay.NewRelay(cfg.Relay, &kafkaProducer, log, database)
+	relayOutbox := relay.NewRelay(cfg.Relay, kafkaProducer, log, database)
+	relayOutbox.Start()
 	paymentHandler := handler.NewPaymentHandler(paymentService, log)
 	router := handler.NewRouter(paymentHandler, log)
 
