@@ -3,10 +3,13 @@ package config
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
+	"github.com/subosito/gotenv"
 )
 
 type Config struct {
@@ -52,45 +55,59 @@ type RelayConfig struct {
 }
 
 func Load() (*Config, error) {
-	v := viper.New()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
-
 	if _, err := os.Stat(".env"); err == nil {
-		v.SetConfigFile(".env")
-		v.SetConfigType("env")
-		if err := v.ReadInConfig(); err != nil {
-			return nil, fmt.Errorf("error reading .env file: %w", err)
+		if err := gotenv.Load(".env"); err != nil {
+			return nil, fmt.Errorf("loading .env: %w", err)
 		}
-		fmt.Println("Loaded configuration from .env file")
-	} else {
-		fmt.Println("No .env file found, using environment variables only")
 	}
 
+	v := viper.New()
 	v.SetEnvPrefix("APP")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
 	v.AutomaticEnv()
-
-	fmt.Printf("Viper env vars: %#v\n", v)
+	if err := bindEnvs(v, "", reflect.TypeFor[Config]()); err != nil {
+		return nil, fmt.Errorf("binding env: %w", err)
+	}
 
 	var cfg Config
-	err := v.Unmarshal(&cfg)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing .env file: %w", err)
+	if err := v.Unmarshal(&cfg, viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+		),
+	)); err != nil {
+		return nil, fmt.Errorf("unmarshaling config: %w", err)
 	}
-	/*
-		if err := v.Unmarshal(&cfg, viper.DecodeHook(
-			mapstructure.ComposeDecodeHookFunc(
-				mapstructure.StringToTimeDurationHookFunc(),
-				mapstructure.StringToSliceHookFunc(","),
-			),
-		)); err != nil {
-			return nil, fmt.Errorf("unmarshaling config: %w", err)
-		}
-	*/
+
 	if err := validateConfig(&cfg); err != nil {
 		return nil, err
 	}
 
 	return &cfg, nil
+}
+
+func bindEnvs(v *viper.Viper, prefix string, typ reflect.Type) error {
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		key := field.Tag.Get("mapstructure")
+		if key == "" {
+			continue
+		}
+		fullKey := key
+		if prefix != "" {
+			fullKey = prefix + "." + key
+		}
+		if field.Type.Kind() == reflect.Struct {
+			if err := bindEnvs(v, fullKey, field.Type); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := v.BindEnv(fullKey); err != nil {
+			return fmt.Errorf("bind %s: %w", fullKey, err)
+		}
+	}
+	return nil
 }
 
 func validateConfig(cfg *Config) error {

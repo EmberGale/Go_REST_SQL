@@ -46,15 +46,15 @@ services:
     image: postgres:16
     container_name: payment-postgres
     environment:
-      POSTGRES_DB: ${APP_DATABASE_DBNAME}
-      POSTGRES_USER: ${APP_DATABASE_USER}
-      POSTGRES_PASSWORD: ${APP_DATABASE_PASSWORD}
+      POSTGRES_DB: ${APP_DATABASE__DBNAME}
+      POSTGRES_USER: ${APP_DATABASE__USER}
+      POSTGRES_PASSWORD: ${APP_DATABASE__PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${APP_DATABASE_USER} -d ${APP_DATABASE_DBNAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DATABASE__USER} -d ${APP_DATABASE__DBNAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -67,7 +67,7 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "${APP_SERVER_PORT:-8080}:8080"
+      - "${APP_SERVER__PORT:-8080}:8080"
     env_file:
       - .env
 
