@@ -62,8 +62,6 @@ func Load() (*Config, error) {
 	}
 
 	v := viper.New()
-	v.SetEnvPrefix("APP")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
 	v.AutomaticEnv()
 	if err := bindEnvs(v, "", reflect.TypeFor[Config]()); err != nil {
 		return nil, fmt.Errorf("binding env: %w", err)
@@ -78,6 +76,8 @@ func Load() (*Config, error) {
 	)); err != nil {
 		return nil, fmt.Errorf("unmarshaling config: %w", err)
 	}
+
+	fmt.Printf("%#v\n", cfg)
 
 	if err := validateConfig(&cfg); err != nil {
 		return nil, err
@@ -103,7 +103,11 @@ func bindEnvs(v *viper.Viper, prefix string, typ reflect.Type) error {
 			}
 			continue
 		}
-		if err := v.BindEnv(fullKey); err != nil {
+		// viper doesn't reliably apply our nested-key formatting when binding by key,
+		// so we bind to the exact env var name we expect, e.g.:
+		//   fullKey=database.host -> APP_DATABASE__HOST
+		envVar := "APP_" + strings.ToUpper(strings.ReplaceAll(fullKey, ".", "__"))
+		if err := v.BindEnv(fullKey, envVar); err != nil {
 			return fmt.Errorf("bind %s: %w", fullKey, err)
 		}
 	}

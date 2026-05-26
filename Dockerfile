@@ -2,28 +2,29 @@ FROM golang:alpine AS builder
 
 WORKDIR /app
 
+RUN apk add --no-cache git
+
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-# Устанавливаем goose
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server ./cmd/server
 
-# Собираем приложение
-RUN CGO_ENABLED=0 go build -o server ./cmd/server
-
-# Копируем бинарник goose
-RUN cp /go/bin/goose /goose
-
-FROM debian:bookworm-slim
+FROM alpine
 
 WORKDIR /app
 
-COPY --from=builder /app/server .
-COPY --from=builder /goose .
-COPY --from=builder /app/migrations ./migrations
+RUN adduser -D -g '' appuser && \
+    apk add --no-cache ca-certificates
+
+COPY --from=builder /app/server /app/server
+COPY --from=builder /app/migrations /app/migrations
+
+ENV APP_DATABASE__MIGRATIONS_PATH=./migrations
 
 EXPOSE 8080
 
-CMD ["./server"]
+USER appuser
+
+CMD ["/app/server"]
