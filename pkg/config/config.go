@@ -1,15 +1,14 @@
 package config
 
 import (
-	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
-// Config содержит всю конфигурацию приложения
 type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Logger   LoggerConfig   `mapstructure:"logger"`
@@ -18,7 +17,6 @@ type Config struct {
 	Relay    RelayConfig    `mapstructure:"relay"`
 }
 
-// DatabaseConfig содержит настройки подключения к БД
 type DatabaseConfig struct {
 	Host           string `mapstructure:"host"`
 	Port           int    `mapstructure:"port"`
@@ -29,12 +27,10 @@ type DatabaseConfig struct {
 	MigrationsPath string `mapstructure:"migrations_path"`
 }
 
-// LoggerConfig содержит настройки логгера
 type LoggerConfig struct {
 	Level string `mapstructure:"level"`
 }
 
-// ServerConfig содержит настройки сервера
 type ServerConfig struct {
 	Port string `mapstructure:"port"`
 }
@@ -55,40 +51,48 @@ type RelayConfig struct {
 	JitterPercent float64       `mapstructure:"jitter_percent"`
 }
 
-// Load загружает конфигурацию из .env файла или переменных окружения
 func Load() (*Config, error) {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("No .env file found, falling back to environment variables")
-	}
+	v := viper.New()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
 
-	// Чтение переменных окружения с префиксом APP_
-	viper.SetEnvPrefix("APP_")
-	viper.AutomaticEnv()
-
-	// Попытка прочитать .env файл (не критично, если не найдён)
-	// Попытка прочитать файл конфигурации Viper (не критично, если не найден)
-	if err := viper.ReadInConfig(); err != nil {
-		var configFileNotFound viper.ConfigFileNotFoundError
-		if !errors.As(err, &configFileNotFound) {
-			return nil, fmt.Errorf("error reading config file: %w", err)
+	if _, err := os.Stat(".env"); err == nil {
+		v.SetConfigFile(".env")
+		v.SetConfigType("env")
+		if err := v.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("error reading .env file: %w", err)
 		}
+		fmt.Println("Loaded configuration from .env file")
+	} else {
+		fmt.Println("No .env file found, using environment variables only")
 	}
 
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("error unmarshaling config: %w", err)
-	}
+	v.SetEnvPrefix("APP")
+	v.AutomaticEnv()
 
-	// Валидация обязательных полей
-	if err := validateConfig(&config); err != nil {
+	fmt.Printf("Viper env vars: %#v\n", v)
+
+	var cfg Config
+	err := v.Unmarshal(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing .env file: %w", err)
+	}
+	/*
+		if err := v.Unmarshal(&cfg, viper.DecodeHook(
+			mapstructure.ComposeDecodeHookFunc(
+				mapstructure.StringToTimeDurationHookFunc(),
+				mapstructure.StringToSliceHookFunc(","),
+			),
+		)); err != nil {
+			return nil, fmt.Errorf("unmarshaling config: %w", err)
+		}
+	*/
+	if err := validateConfig(&cfg); err != nil {
 		return nil, err
 	}
 
-	return &config, nil
+	return &cfg, nil
 }
 
-// validateConfig проверяет наличие обязательных переменных
 func validateConfig(cfg *Config) error {
 	if cfg.Database.Host == "" {
 		return fmt.Errorf("required env variable cfg.Database.Host is not set")

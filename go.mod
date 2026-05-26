@@ -5,8 +5,8 @@ go 1.25.7
 require (
 	github.com/IBM/sarama v1.48.0
 	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.12.1
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/sony/gobreaker v1.0.0
@@ -19,7 +19,6 @@ require (
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
