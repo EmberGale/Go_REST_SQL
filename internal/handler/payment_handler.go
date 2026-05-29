@@ -45,7 +45,8 @@ func (pH *PaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	pH.logger.Info("payment created", zap.Int64("id", id))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Payment " + strconv.FormatInt(id, 10)))
+	json.NewEncoder(w).Encode(id)
+	// w.Write([]byte("Payment " + strconv.FormatInt(id, 10)))
 }
 
 func (pH *PaymentHandler) GetById(w http.ResponseWriter, r *http.Request) {

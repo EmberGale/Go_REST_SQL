@@ -72,7 +72,6 @@ func (r *Relay) worker(id int) {
 }
 
 func (r *Relay) processBatch(id int) {
-	defer r.wg.Done()
 	r.logger.Info("process batch" + strconv.Itoa(id))
 
 	query_tasks := `
@@ -92,6 +91,7 @@ func (r *Relay) processBatch(id int) {
 	err := r.db.Select(&events, query_tasks)
 	if err != nil {
 		r.logger.Error("failed to fetch events", zap.Error(err))
+		return
 	}
 
 	for _, event := range events {

@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // PostgreSQLPaymentRepository реализует интерфейс PaymentRepository
@@ -79,33 +81,29 @@ func (p *PostgreSQLPaymentRepository) CreateWithOutbox(ctx context.Context, paym
 	}
 	defer tx.Rollback()
 
-	// Payment
-	var id int64
-	query := `INSERT INTO payments (person, amount, currency, status, user_id, time) 
-		VALUES (:person, :amount, :currency, :status, :user_id, :time) RETURNING id`
 	payment.Time = time.Now()
-	rows, err := tx.NamedQuery(query, payment)
 
+	// 1. Insert Payment
+	queryPayment := `INSERT INTO payments (person, amount, currency, status, user_id, time) 
+		VALUES (:person, :amount, :currency, :status, :user_id, :time) RETURNING id`
+
+	q1, args1, err := sqlx.Named(queryPayment, payment)
 	if err != nil {
 		return 0, err
 	}
-	if rows.Next() {
-		if err := rows.Scan(&id); err != nil {
-			return 0, err
-		}
+
+	var id int64
+	// tx.Rebind converts '?' placeholders to '$1, $2' for PostgreSQL
+	if err := tx.QueryRowx(tx.Rebind(q1), args1...).Scan(&id); err != nil {
+		return 0, err
 	}
 
-	// Outbox
-	query_outbox := `INSERT INTO outbox_events (payment_id, event_type, payload, status, attempts, 
-                           next_retry_at, created_at) 
-	VALUES (:payment_id, :event_type, :payload, :status, :attempts, :next_retry_at, 
-	        :created_at) RETURNING id`
+	// 2. Insert Outbox
+	payloadJSON, _ := json.Marshal(payment)
 
-	payloadJSON, err := json.Marshal(payment)
-
-	outbox_event := model.OutboxEvent{
-		ID:          0, // Ignore
-		PaymentID:   payment.Id,
+	outboxEvent := model.OutboxEvent{
+		PaymentID:   id,                // Use the newly generated ID
+		EventType:   "payment.created", // Maps directly to :event_type in DB
 		Status:      model.OUTBOX_STATUS_PENDING,
 		Payload:     string(payloadJSON),
 		Attempts:    0,
@@ -113,12 +111,18 @@ func (p *PostgreSQLPaymentRepository) CreateWithOutbox(ctx context.Context, paym
 		CreatedAt:   time.Time{},
 	}
 
-	rows, err = tx.NamedQuery(query_outbox, outbox_event)
-	if rows.Next() {
-		if err := rows.Scan(&id); err != nil {
-			return 0, err
-		}
+	queryOutbox := `INSERT INTO outbox_events (payment_id, event_type, payload, status, attempts, next_retry_at, created_at) 
+		VALUES (:payment_id, :event_type, :payload, :status, :attempts, :next_retry_at, :created_at) RETURNING id`
+
+	q2, args2, err := sqlx.Named(queryOutbox, outboxEvent)
+	if err != nil {
+		return 0, err
 	}
 
-	return id, nil
+	var outboxID int64
+	if err := tx.QueryRowx(tx.Rebind(q2), args2...).Scan(&outboxID); err != nil {
+		return 0, err
+	}
+
+	return outboxID, tx.Commit()
 }
