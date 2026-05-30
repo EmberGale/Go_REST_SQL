@@ -102,17 +102,17 @@ func (p *PostgreSQLPaymentRepository) CreateWithOutbox(ctx context.Context, paym
 	payloadJSON, _ := json.Marshal(payment)
 
 	outboxEvent := model.OutboxEvent{
-		PaymentID:   id,                // Use the newly generated ID
-		EventType:   "payment.created", // Maps directly to :event_type in DB
-		Status:      model.OUTBOX_STATUS_PENDING,
-		Payload:     string(payloadJSON),
-		Attempts:    0,
-		NextRetryAt: time.Time{},
-		CreatedAt:   time.Time{},
+		PaymentID: id, // Use the newly generated ID
+		Status:    model.OUTBOX_STATUS_PENDING,
+		Payload:   string(payloadJSON),
+		Attempts:  0,
+		//NextRetryAt: time.Time{}, empty value, as it will be set when the first retry is scheduled
+		//CreatedAt:   time.Time{}, will be set by the database default value (CURRENT_TIMESTAMP)
+		Topic: "payment_created",
 	}
 
-	queryOutbox := `INSERT INTO outbox_events (payment_id, event_type, payload, status, attempts, next_retry_at, created_at) 
-		VALUES (:payment_id, :event_type, :payload, :status, :attempts, :next_retry_at, :created_at) RETURNING id`
+	queryOutbox := `INSERT INTO outbox_events (payment_id, payload, status, attempts, topic) 
+		VALUES (:payment_id, :payload, :status, :attempts, :topic) RETURNING id`
 
 	q2, args2, err := sqlx.Named(queryOutbox, outboxEvent)
 	if err != nil {

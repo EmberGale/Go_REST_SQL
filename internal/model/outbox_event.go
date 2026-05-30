@@ -14,7 +14,6 @@ const (
 type OutboxEvent struct {
 	ID          int64        `json:"id" db:"id"`
 	PaymentID   int64        `json:"payment_id" db:"payment_id"`
-	EventType   string       `json:"event_type" db:"event_type"`
 	Status      OutboxStatus `json:"status" db:"status"`
 	Payload     string       `json:"payload" db:"payload"`
 	Attempts    int          `json:"attempts" db:"attempts"`

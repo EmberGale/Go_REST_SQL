@@ -24,14 +24,14 @@ type Relay struct {
 	db            db.DB
 }
 
-func NewRelay(config config.RelayConfig, kafkaProduce kafka.Producer, log *zap.SugaredLogger, db db.DB) *Relay {
+func NewRelay(config config.RelayConfig, kafkaProducer kafka.Producer, log *zap.SugaredLogger, db db.DB) *Relay {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Relay{
 		config:        config,
 		logger:        log,
 		ctx:           ctx,
 		cancel:        cancel,
-		kafkaProducer: kafkaProduce,
+		kafkaProducer: kafkaProducer,
 		db:            db,
 	}
 }
@@ -76,11 +76,11 @@ func (r *Relay) processBatch(id int) {
 
 	query_tasks := `
 	UPDATE outbox_events
-	SET status = 'processing'
+	SET status = $1
 	WHERE id IN (
 		SELECT id 
 		FROM outbox_events 
-		WHERE status = 'pending' AND next_retry_at <= NOW()
+		WHERE status = $2 AND next_retry_at <= NOW()
 		ORDER BY created_at ASC
 		LIMIT 10
 		FOR UPDATE SKIP LOCKED
@@ -88,7 +88,9 @@ func (r *Relay) processBatch(id int) {
 	RETURNING id, payment_id, payload, attempts, topic;
 	`
 	var events []model.OutboxEvent
-	err := r.db.Select(&events, query_tasks)
+	err := r.db.Select(&events, query_tasks,
+		model.OUTBOX_STATUS_PROCESSING,
+		model.OUTBOX_STATUS_PENDING)
 	if err != nil {
 		r.logger.Error("failed to fetch events", zap.Error(err))
 		return
