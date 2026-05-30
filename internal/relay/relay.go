@@ -74,7 +74,7 @@ func (r *Relay) worker(id int) {
 func (r *Relay) processBatch(id int) {
 	r.logger.Info("process batch" + strconv.Itoa(id))
 
-	query_tasks := `
+	queryTasks := `
 	UPDATE outbox_events
 	SET status = $1
 	WHERE id IN (
@@ -87,8 +87,9 @@ func (r *Relay) processBatch(id int) {
 	)
 	RETURNING id, payment_id, payload, attempts, topic;
 	`
+
 	var events []model.OutboxEvent
-	err := r.db.Select(&events, query_tasks,
+	err := r.db.Select(&events, queryTasks,
 		model.OUTBOX_STATUS_PROCESSING,
 		model.OUTBOX_STATUS_PENDING)
 	if err != nil {
@@ -103,9 +104,30 @@ func (r *Relay) processBatch(id int) {
 			Value: []byte(event.Payload),
 		}
 
+		// Status to change to after kafka attempt
+		var newStatus model.OutboxStatus
 		err := r.kafkaProducer.SendMessage(r.ctx, msg)
 		if err != nil {
 			r.logger.Error("failed to send message", zap.Error(err))
+
+			if event.Attempts >= r.config.MaxAttempts {
+				newStatus = model.OUTBOX_STATUS_FAILED
+			} else {
+				newStatus = model.OUTBOX_STATUS_PENDING
+			}
+		} else {
+			newStatus = model.OUTBOX_STATUS_SUCCESS
+		}
+
+		_, err = r.db.Exec(
+			"UPDATE outbox_events SET status = $1, attempts = $2 WHERE id = $3",
+			newStatus,
+			event.Attempts,
+			event.ID,
+		)
+
+		if err != nil {
+			r.logger.Error("failed to update event", zap.Int64("id", event.ID), zap.Error(err))
 		}
 	}
 
