@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewHTTPClient(logger *zap.Logger) HTTPClient {
+func NewHTTPClient(logger *zap.SugaredLogger) HTTPClient {
 	baseClient := NewDefaultHTTPClient(5 * time.Second)
 
 	retryConfig := RetryConfig{

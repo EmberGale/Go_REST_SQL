@@ -1,15 +1,12 @@
 package db
 
 import (
+	"GoRestSQL/pkg/config"
 	"database/sql"
 	"fmt"
-	"path/filepath"
-
-	"GoRestSQL/pkg/config"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/pressly/goose/v3"
 )
 
 // DB определяет интерфейс для работы с базой данных
@@ -54,12 +51,14 @@ func New(cfg config.DatabaseConfig) (*Database, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// Применяем миграции
-	migrationsPath := filepath.Clean(cfg.MigrationsPath)
-	if err := goose.Up(db.DB, migrationsPath); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
-	}
+	/*
+		// Применяем миграции
+		migrationsPath := filepath.Clean(cfg.MigrationsPath)
+		if err := goose.Up(db.DB, migrationsPath); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("failed to run migrations: %w", err)
+		}
+	*/
 
 	return &Database{db}, nil
 }

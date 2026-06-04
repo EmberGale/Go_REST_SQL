@@ -2,11 +2,12 @@ package main
 
 import (
 	"GoRestSQL/internal/handler"
+	"GoRestSQL/internal/producer"
+	"GoRestSQL/internal/relay"
 	"GoRestSQL/internal/repository"
 	"GoRestSQL/internal/service"
 	"GoRestSQL/pkg/config"
 	"GoRestSQL/pkg/db"
-	"GoRestSQL/pkg/kafka"
 	"GoRestSQL/pkg/logger"
 	"context"
 	"errors"
@@ -45,15 +46,21 @@ func main() {
 
 	log.Info("database connected and migrations applied")
 
+	// Init empty context
+	ctx := context.Background()
+
 	// Kafka
-	kafkaProducer, err := kafka.NewKafkaProducer(&cfg.Kafka, "Payment", log)
+	kafkaProducer, err := producer.NewSaramaProducer(cfg.Kafka.Brokers, nil, log)
 	if err != nil {
 		log.Fatal("failed to create kafka producer", zap.Error(err))
 	}
+	defer kafkaProducer.Close()
 
 	// Создаём слои приложения
 	paymentRepo := repository.NewPostgreSQLPaymentRepository(database)
-	paymentService := service.NewPaymentServiceImpl(paymentRepo, kafkaProducer)
+	paymentService := service.NewPaymentServiceImpl(ctx, paymentRepo, kafkaProducer, log)
+	relayOutbox := relay.NewRelay(cfg.Relay, kafkaProducer, log, database)
+	relayOutbox.Start()
 	paymentHandler := handler.NewPaymentHandler(paymentService, log)
 	router := handler.NewRouter(paymentHandler, log)
 

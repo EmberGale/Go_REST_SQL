@@ -2,20 +2,24 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"reflect"
 	"strings"
+	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
+	"github.com/subosito/gotenv"
 )
 
-// Config содержит всю конфигурацию приложения
 type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Logger   LoggerConfig   `mapstructure:"logger"`
 	Server   ServerConfig   `mapstructure:"server"`
 	Kafka    KafkaConfig    `mapstructure:"kafka"`
+	Relay    RelayConfig    `mapstructure:"relay"`
 }
 
-// DatabaseConfig содержит настройки подключения к БД
 type DatabaseConfig struct {
 	Host           string `mapstructure:"host"`
 	Port           int    `mapstructure:"port"`
@@ -26,79 +30,114 @@ type DatabaseConfig struct {
 	MigrationsPath string `mapstructure:"migrations_path"`
 }
 
-// LoggerConfig содержит настройки логгера
 type LoggerConfig struct {
 	Level string `mapstructure:"level"`
 }
 
-// ServerConfig содержит настройки сервера
 type ServerConfig struct {
 	Port string `mapstructure:"port"`
 }
 
 type KafkaConfig struct {
-	BootstrapServers string `mapstructure:"bootstrapServers"`
-	Acks             string `mapstructure:"acks"`
-	ClientId         string `mapstructure:"clientId"`
+	Acks     string   `mapstructure:"acks"`
+	ClientId string   `mapstructure:"client_id"`
+	Brokers  []string `mapstructure:"brokers"`
 }
 
-// Load загружает конфигурацию из .env файла или переменных окружения
+type RelayConfig struct {
+	WorkerCount   int           `mapstructure:"worker_count"`
+	BatchSize     int           `mapstructure:"batch_size"`
+	PollInterval  time.Duration `mapstructure:"poll_interval"`
+	MaxAttempts   int           `mapstructure:"max_attempts"`
+	BaseDelay     int           `mapstructure:"base_delay"`
+	MaxDelay      int           `mapstructure:"max_delay"`
+	JitterPercent float64       `mapstructure:"jitter_percent"`
+}
+
 func Load() (*Config, error) {
-	viper.SetConfigName(".env")
-	viper.SetConfigType("env")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("./")
-
-	// Чтение переменных окружения с префиксом APP_
-	viper.SetEnvPrefix("APP")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-
-	// Попытка прочитать .env файл (не критично, если не найдён)
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("error reading config file: %w", err)
+	if _, err := os.Stat(".env"); err == nil {
+		if err := gotenv.Load(".env"); err != nil {
+			return nil, fmt.Errorf("loading .env: %w", err)
 		}
 	}
 
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("error unmarshaling config: %w", err)
+	v := viper.New()
+	v.AutomaticEnv()
+	if err := bindEnvs(v, "", reflect.TypeFor[Config]()); err != nil {
+		return nil, fmt.Errorf("binding env: %w", err)
 	}
 
-	// Валидация обязательных полей
-	if err := validateConfig(&config); err != nil {
+	var cfg Config
+	if err := v.Unmarshal(&cfg, viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+		),
+	)); err != nil {
+		return nil, fmt.Errorf("unmarshaling config: %w", err)
+	}
+
+	fmt.Printf("%#v\n", cfg)
+
+	if err := validateConfig(&cfg); err != nil {
 		return nil, err
 	}
 
-	return &config, nil
+	return &cfg, nil
 }
 
-// validateConfig проверяет наличие обязательных переменных
+func bindEnvs(v *viper.Viper, prefix string, typ reflect.Type) error {
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		key := field.Tag.Get("mapstructure")
+		if key == "" {
+			continue
+		}
+		fullKey := key
+		if prefix != "" {
+			fullKey = prefix + "." + key
+		}
+		if field.Type.Kind() == reflect.Struct {
+			if err := bindEnvs(v, fullKey, field.Type); err != nil {
+				return err
+			}
+			continue
+		}
+		// viper doesn't reliably apply our nested-key formatting when binding by key,
+		// so we bind to the exact env var name we expect, e.g.:
+		//   fullKey=database.host -> APP_DATABASE__HOST
+		envVar := "APP_" + strings.ToUpper(strings.ReplaceAll(fullKey, ".", "__"))
+		if err := v.BindEnv(fullKey, envVar); err != nil {
+			return fmt.Errorf("bind %s: %w", fullKey, err)
+		}
+	}
+	return nil
+}
+
 func validateConfig(cfg *Config) error {
 	if cfg.Database.Host == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_HOST is not set")
+		return fmt.Errorf("required env variable cfg.Database.Host is not set")
 	}
 	if cfg.Database.Port == 0 {
-		return fmt.Errorf("required env variable APP_DATABASE_PORT is not set")
+		return fmt.Errorf("required env variable cfg.Database.Port is not set")
 	}
 	if cfg.Database.User == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_USER is not set")
+		return fmt.Errorf("required env variable cfg.Database.User is not set")
 	}
 	if cfg.Database.Password == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_PASSWORD is not set")
+		return fmt.Errorf("required env variable cfg.Database.Password is not set")
 	}
 	if cfg.Database.DBName == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_DBNAME is not set")
+		return fmt.Errorf("required env variable cfg.Database.DBName is not set")
 	}
 	if cfg.Database.MigrationsPath == "" {
-		return fmt.Errorf("required env variable APP_DATABASE_MIGRATIONS_PATH is not set")
+		return fmt.Errorf("required env variable cfg.Database.MigrationsPath is not set")
 	}
 	if cfg.Server.Port == "" {
-		return fmt.Errorf("required env variable APP_SERVER_PORT is not set")
+		return fmt.Errorf("required env variable cfg.Server.Port is not set")
 	}
 	if cfg.Logger.Level == "" {
-		return fmt.Errorf("required env variable APP_LOGGER_LEVEL is not set")
+		return fmt.Errorf("required env variable cfg.Logger.Level is not set")
 	}
 	return nil
 }

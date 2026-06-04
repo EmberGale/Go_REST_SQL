@@ -10,7 +10,7 @@ import (
 )
 
 // NewRouter создаёт новый HTTP роутер с middleware логированием
-func NewRouter(handler *PaymentHandler, logger *zap.Logger) http.Handler {
+func NewRouter(handler *PaymentHandler, logger *zap.SugaredLogger) http.Handler {
 	r := chi.NewRouter()
 
 	// Используем стандартные middleware chi

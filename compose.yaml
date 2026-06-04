@@ -1,55 +1,108 @@
 services:
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: payment-kafka
+    environment:
+      # KRaft mode
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      
+      # Listeners: PLAINTEXT for clients, CONTROLLER for KRaft
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # KRaft metadata storage
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - net
+
+  kafdrop: # Kafka Web UI
+    image: obsidiandynamics/kafdrop
+    container_name: payment-kafdrop
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:9092" # Connect to Kafka service by name
+      JVM_OPTS: "-Xms32M -Xmx64M" # Optional JVM limits
+      SERVER_PORT: "9000"
+    networks:
+      - net
+
   postgres:
-    image: postgres:16
+    image: postgres:latest
     container_name: payment-postgres
     environment:
-      POSTGRES_DB: payment_DB
-      POSTGRES_USER: payment_user
-      POSTGRES_PASSWORD: payment_password
+      POSTGRES_DB: ${APP_DATABASE__DBNAME}
+      POSTGRES_USER: ${APP_DATABASE__USER}
+      POSTGRES_PASSWORD: ${APP_DATABASE__PASSWORD}
+      PGDATA: /var/lib/postgresql/18/docker
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_DB"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DATABASE__USER} -d ${APP_DATABASE__DBNAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - net
 
-  migrate:
-    build: .
+  migrations:
+    image: ghcr.io/kukymbr/goose-docker:latest
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
     environment:
-      APP_DATABASE_HOST: postgres
-      APP_DATABASE_PORT: 5432
-      APP_DATABASE_USER: payment_user
-      APP_DATABASE_PASSWORD: payment_password
-      APP_DATABASE_DBNAME: payment_DB
-      APP_DATABASE_SSLMODE: disable
-      APP_DATABASE_MIGRATIONS_PATH: /app/migrations
-      APP_LOGGER_LEVEL: info
-      APP_SERVER_PORT: 8080
-    command: ["./server"]
+      - GOOSE_DRIVER=postgres
+      - GOOSE_DBSTRING=host=postgres port=5432 user=${APP_DATABASE__USER} password=${APP_DATABASE__PASSWORD} dbname=${APP_DATABASE__DBNAME} sslmode=disable
+      - GOOSE_COMMAND=up
+    networks:
+      - net
 
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: payment-api
     depends_on:
-      migrate:
+      postgres:
+        condition: service_healthy
+      migrations:
         condition: service_completed_successfully
-    environment:
-      APP_DATABASE_HOST: postgres
-      APP_DATABASE_PORT: 5432
-      APP_DATABASE_USER: payment_user
-      APP_DATABASE_PASSWORD: payment_password
-      APP_DATABASE_DBNAME: payment_DB
-      APP_DATABASE_SSLMODE: disable
-      APP_DATABASE_MIGRATIONS_PATH: /app/migrations
-      APP_LOGGER_LEVEL: info
-      APP_SERVER_PORT: 8080
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - net
     ports:
       - "8080:8080"
 
 volumes:
   postgres_data:
+
+networks:
+  net:
+    driver: bridge
