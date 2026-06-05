@@ -6,6 +6,7 @@ import (
 	"GoRestSQL/internal/relay"
 	"GoRestSQL/internal/repository"
 	"GoRestSQL/internal/service"
+	"GoRestSQL/pkg/cache"
 	"GoRestSQL/pkg/config"
 	"GoRestSQL/pkg/db"
 	"GoRestSQL/pkg/logger"
@@ -56,9 +57,11 @@ func main() {
 	}
 	defer kafkaProducer.Close()
 
+	redisClient, err := cache.NewRedisClient(context.Background(), cfg.Redis, log)
+
 	// Создаём слои приложения
 	paymentRepo := repository.NewPostgreSQLPaymentRepository(database)
-	paymentService := service.NewPaymentServiceImpl(ctx, paymentRepo, kafkaProducer, log)
+	paymentService := service.NewPaymentServiceImpl(ctx, paymentRepo, kafkaProducer, log, redisClient)
 	relayOutbox := relay.NewRelay(cfg.Relay, kafkaProducer, log, database)
 	relayOutbox.Start()
 	paymentHandler := handler.NewPaymentHandler(paymentService, log)
