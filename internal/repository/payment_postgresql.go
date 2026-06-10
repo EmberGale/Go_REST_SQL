@@ -126,3 +126,7 @@ func (p *PostgreSQLPaymentRepository) CreateWithOutbox(ctx context.Context, paym
 
 	return outboxID, tx.Commit()
 }
+
+func (p *PostgreSQLPaymentRepository) GetAllPayments(ctx context.Context) ([]model.Payment, error) {
+
+}
