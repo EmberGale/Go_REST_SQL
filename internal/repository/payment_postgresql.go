@@ -128,5 +128,10 @@ func (p *PostgreSQLPaymentRepository) CreateWithOutbox(ctx context.Context, paym
 }
 
 func (p *PostgreSQLPaymentRepository) GetAllPayments(ctx context.Context) ([]model.Payment, error) {
-
+	query := "SELECT * FROM payments"
+	var payments []model.Payment
+	if err := p.DB.Select(&payments, query); err != nil {
+		return nil, err
+	}
+	return payments, nil
 }
