@@ -29,6 +29,7 @@ type PaymentServiceImpl struct {
 	log           *zap.SugaredLogger
 	cache         *redis.Client
 	cfg           *config.Config
+	sfGroup       singleflight.Group
 }
 
 func NewPaymentServiceImpl(ctx context.Context, repo repository.PaymentRepository,

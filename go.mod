@@ -13,6 +13,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/subosito/gotenv v1.6.0
 	go.uber.org/zap v1.27.1
+	golang.org/x/sync v0.20.0
 )
 
 require (
