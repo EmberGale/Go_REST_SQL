@@ -12,5 +12,8 @@ type PaymentRepository interface {
 	GetByPerson(ctx context.Context, person string) ([]model.Payment, error)
 	Update(ctx context.Context, payment *model.Payment) (int64, error)
 	Delete(ctx context.Context, id int64) (int64, error)
+
+	GetAllPayments(ctx context.Context) ([]model.Payment, error)
+
 	CreateWithOutbox(ctx context.Context, payment *model.Payment) (int64, error)
 }
