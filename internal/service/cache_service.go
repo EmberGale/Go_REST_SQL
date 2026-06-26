@@ -1,9 +1,10 @@
 package service
 
 import (
+	"GoRestSQL/internal/model"
 	"context"
 	"fmt"
-	"golang.org/x/sync/singleflight"
+	"time"
 )
 
 func (o *PaymentServiceImpl) getFromCache(ctx context.Context, key string) (interface{}, error) {
@@ -27,8 +28,9 @@ func (p *PaymentServiceImpl) WarmCache(ctx context.Context) error {
 }
 
 func (p *PaymentServiceImpl) GetWithSingleFlight(ctx context.Context, paymentID int64) (*model.Payment, error) {
-	singleFlight.Do(ctx, fmt.Sprintf("payment_id:%d", paymentID), func() (interface{}, error) {
+	res, err, _ := p.sfGroup.Do(fmt.Sprintf("payment_id:%d", paymentID), func() (interface{}, error) {
 		return p.GetPaymentById(paymentID)
 	})
-	return payment, err
+
+	return res.(*model.Payment), err
 }

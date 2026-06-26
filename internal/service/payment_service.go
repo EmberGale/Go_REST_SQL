@@ -12,6 +12,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 type PaymentService interface {
@@ -66,8 +67,10 @@ func (p *PaymentServiceImpl) GetPaymentById(paymentID int64) (*model.Payment, er
 		p.log.Info("Get by id:%d -> from cache", paymentID)
 		return &payment, nil
 	}
-	// Cache miss
-	payment, err := p.repo.GetById(p.ctx, paymentID)
+	// Cache miss\
+	// Singleglight
+	payment, err := p.GetWithSingleFlight(p.ctx, paymentID)
+	//payment, err := p.repo.GetById(p.ctx, paymentID)
 
 	// Store in cache
 	bytes, _ := json.Marshal(payment)
