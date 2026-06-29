@@ -3,6 +3,7 @@ package service
 import (
 	"GoRestSQL/internal/model"
 	"GoRestSQL/internal/repository"
+	pkgcache "GoRestSQL/pkg/cache"
 	"GoRestSQL/pkg/config"
 	"GoRestSQL/pkg/kafka"
 	"context"
@@ -10,7 +11,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
@@ -28,13 +28,13 @@ type PaymentServiceImpl struct {
 	repo          repository.PaymentRepository
 	kafkaProducer kafka.Producer
 	log           *zap.SugaredLogger
-	cache         *redis.Client
+	cache         pkgcache.Cache
 	cfg           *config.Config
 	sfGroup       singleflight.Group
 }
 
 func NewPaymentServiceImpl(ctx context.Context, repo repository.PaymentRepository,
-	kafkaProducer kafka.Producer, log *zap.SugaredLogger, cache *redis.Client) *PaymentServiceImpl {
+	kafkaProducer kafka.Producer, log *zap.SugaredLogger, cache pkgcache.Cache) *PaymentServiceImpl {
 	return &PaymentServiceImpl{
 		repo:          repo,
 		kafkaProducer: kafkaProducer,
@@ -45,10 +45,12 @@ func NewPaymentServiceImpl(ctx context.Context, repo repository.PaymentRepositor
 }
 
 func (p *PaymentServiceImpl) UpdatePayment(payment *model.Payment) (int64, error) {
+	p.invalidateCacheById(p.ctx, payment.Id)
 	return p.repo.Update(p.ctx, payment)
 }
 
 func (p *PaymentServiceImpl) DeletePayment(paymentID int64) (int64, error) {
+	p.invalidateCacheById(p.ctx, paymentID)
 	return p.repo.Delete(p.ctx, paymentID)
 }
 

@@ -21,7 +21,7 @@ func (p *PaymentServiceImpl) WarmCache(ctx context.Context) error {
 		return err
 	}
 	for _, payment := range payments {
-		key := fmt.Sprintf("payment_id:%d", payment.ID)
+		key := fmt.Sprintf("payment_id:%d", payment.Id)
 		p.cache.Set(ctx, key, payment, 1*time.Minute)
 	}
 	return nil
@@ -33,4 +33,10 @@ func (p *PaymentServiceImpl) GetWithSingleFlight(ctx context.Context, paymentID 
 	})
 
 	return res.(*model.Payment), err
+}
+
+func (p *PaymentServiceImpl) invalidateCacheById(ctx context.Context, paymentID int64) {
+	key := fmt.Sprintf("payment_id:%d", paymentID)
+	p.sfGroup.Forget(key)
+	_ = p.cache.Del(ctx, key).Err()
 }

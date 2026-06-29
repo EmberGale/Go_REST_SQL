@@ -12,9 +12,10 @@ import (
 )
 
 func TestGetFromCache_Hit(t *testing.T) {
-	svc, _, mr := setupPaymentService(t)
+	svc, _, mockCache := setupPaymentService(t)
 	ctx := context.Background()
-	mr.Set("payment_id:1", `{"id":1,"person":"Alice"}`)
+	_, err := mockCache.Set(ctx, "payment_id:1", `{"id":1,"person":"Alice"}`, 0).Result()
+	require.NoError(t, err)
 
 	data, err := svc.getFromCache(ctx, "payment_id:1")
 

@@ -9,25 +9,53 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-func setupPaymentService(t *testing.T) (*PaymentServiceImpl, *repomocks.MockPaymentRepository, *miniredis.Miniredis) {
+type mockCache struct {
+	data map[string]string
+}
+
+func newMockCache() *mockCache {
+	return &mockCache{data: make(map[string]string)}
+}
+
+func (m *mockCache) Get(ctx context.Context, key string) *redis.StringCmd {
+	if value, ok := m.data[key]; ok {
+		return redis.NewStringResult(value, nil)
+	}
+	return redis.NewStringResult("", redis.Nil)
+}
+
+func (m *mockCache) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
+	switch v := value.(type) {
+	case []byte:
+		m.data[key] = string(v)
+	case string:
+		m.data[key] = v
+	default:
+		bytes, _ := json.Marshal(v)
+		m.data[key] = string(bytes)
+	}
+	return redis.NewStatusResult("OK", nil)
+}
+
+func (m *mockCache) Del(ctx context.Context, key string) *redis.IntCmd {
+	delete(m.data, key)
+	return redis.NewIntResult(1, nil)
+}
+
+func setupPaymentService(t *testing.T) (*PaymentServiceImpl, *repomocks.MockPaymentRepository, *mockCache) {
 	t.Helper()
 
 	mockRepo := repomocks.NewMockPaymentRepository(t)
-	mr := miniredis.RunT(t)
-	cache := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() {
-		_ = cache.Close()
-	})
+	mockCache := newMockCache()
 
-	svc := NewPaymentServiceImpl(context.Background(), mockRepo, nil, zap.NewNop().Sugar(), cache)
-	return svc, mockRepo, mr
+	svc := NewPaymentServiceImpl(context.Background(), mockRepo, nil, zap.NewNop().Sugar(), mockCache)
+	return svc, mockRepo, mockCache
 }
 
 func samplePayment(id int64) *model.Payment {
@@ -108,13 +136,14 @@ func TestGetPaymentByPerson_Success(t *testing.T) {
 }
 
 func TestGetPaymentById_CacheHit(t *testing.T) {
-	svc, mockRepo, mr := setupPaymentService(t)
+	svc, mockRepo, mockCache := setupPaymentService(t)
 	payment := samplePayment(5)
 	ctx := context.Background()
 
 	data, err := json.Marshal(payment)
 	require.NoError(t, err)
-	mr.Set("payment_id:5", string(data))
+	_, err = mockCache.Set(ctx, "payment_id:5", data, 0).Result()
+	require.NoError(t, err)
 
 	result, err := svc.GetPaymentById(5)
 
@@ -126,7 +155,7 @@ func TestGetPaymentById_CacheHit(t *testing.T) {
 }
 
 func TestGetPaymentById_CacheMiss(t *testing.T) {
-	svc, mockRepo, mr := setupPaymentService(t)
+	svc, mockRepo, mockCache := setupPaymentService(t)
 	payment := samplePayment(3)
 	ctx := context.Background()
 
@@ -137,7 +166,7 @@ func TestGetPaymentById_CacheMiss(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, payment, result)
 
-	cached, err := mr.Get("payment_id:3")
+	cached, err := mockCache.Get(ctx, "payment_id:3").Result()
 	assert.NoError(t, err)
 
 	var cachedPayment model.Payment

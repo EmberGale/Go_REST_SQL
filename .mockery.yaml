@@ -1,11 +1,22 @@
-with-expecter: true
-dir: "{{.InterfaceDir}}/mocks"
-mockname: "Mock{{.InterfaceName}}"
-outpkg: mocks
 packages:
   GoRestSQL/internal/repository:
+    config:
+      dir: ./internal/repository/mocks
+      filename: "{{.InterfaceName | snakecase}}_mock.go"
+      structname: "Mock{{.InterfaceName}}"
     interfaces:
       PaymentRepository:
   GoRestSQL/pkg/kafka:
+    config:
+      dir: ./pkg/kafka/mocks
+      filename: "{{.InterfaceName | snakecase}}_mock.go"
+      structname: "Mock{{.InterfaceName}}"
     interfaces:
       Producer:
+  GoRestSQL/pkg/cache:
+    config:
+      dir: ./pkg/cache/mocks
+      filename: "{{.InterfaceName | snakecase}}_mock.go"
+      structname: "Mock{{.InterfaceName}}"
+    interfaces:
+      Cache:
