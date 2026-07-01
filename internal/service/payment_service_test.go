@@ -43,9 +43,11 @@ func (m *mockCache) Set(ctx context.Context, key string, value interface{}, expi
 	return redis.NewStatusResult("OK", nil)
 }
 
-func (m *mockCache) Del(ctx context.Context, key string) *redis.IntCmd {
-	delete(m.data, key)
-	return redis.NewIntResult(1, nil)
+func (m *mockCache) Del(ctx context.Context, key ...string) *redis.IntCmd {
+	for _, k := range key {
+		delete(m.data, k)
+	}
+	return redis.NewIntResult(int64(len(key)), nil)
 }
 
 func setupPaymentService(t *testing.T) (*PaymentServiceImpl, *repomocks.MockPaymentRepository, *mockCache) {

@@ -4,6 +4,7 @@ import (
 	"GoRestSQL/internal/model"
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -78,17 +79,41 @@ func TestGetWithSingleFlight_DeduplicatesConcurrentCalls(t *testing.T) {
 
 	mockRepo.EXPECT().GetById(ctx, int64(11)).Return(payment, nil).Once()
 
-	done := make(chan *model.Payment, 2)
-	for range 2 {
+	start := make(chan struct{})
+	results := make(chan struct {
+		payment *model.Payment
+		err     error
+	}, 2)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	for i := 0; i < 2; i++ {
 		go func() {
+			defer wg.Done()
+			<-start
 			result, err := svc.GetWithSingleFlight(ctx, 11)
-			require.NoError(t, err)
-			done <- result
+			results <- struct {
+				payment *model.Payment
+				err     error
+			}{payment: result, err: err}
 		}()
 	}
 
-	first := <-done
-	second := <-done
-	assert.Equal(t, payment.Id, first.Id)
-	assert.Equal(t, payment.Id, second.Id)
+	close(start)
+	wg.Wait()
+	close(results)
+
+	var received []struct {
+		payment *model.Payment
+		err     error
+	}
+	for res := range results {
+		received = append(received, res)
+	}
+
+	require.Len(t, received, 2)
+	for _, res := range received {
+		require.NoError(t, res.err)
+		assert.Equal(t, payment.Id, res.payment.Id)
+	}
 }

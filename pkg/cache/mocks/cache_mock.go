@@ -39,6 +39,74 @@ func (_m *MockCache) EXPECT() *MockCache_Expecter {
 	return &MockCache_Expecter{mock: &_m.Mock}
 }
 
+// Del provides a mock function for the type MockCache
+func (_mock *MockCache) Del(ctx context.Context, key ...string) *redis.IntCmd {
+	var tmpRet mock.Arguments
+	if len(key) > 0 {
+		tmpRet = _mock.Called(ctx, key)
+	} else {
+		tmpRet = _mock.Called(ctx)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for Del")
+	}
+
+	var r0 *redis.IntCmd
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...string) *redis.IntCmd); ok {
+		r0 = returnFunc(ctx, key...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*redis.IntCmd)
+		}
+	}
+	return r0
+}
+
+// MockCache_Del_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Del'
+type MockCache_Del_Call struct {
+	*mock.Call
+}
+
+// Del is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key ...string
+func (_e *MockCache_Expecter) Del(ctx any, key ...any) *MockCache_Del_Call {
+	return &MockCache_Del_Call{Call: _e.mock.On("Del",
+		append([]any{ctx}, key...)...)}
+}
+
+func (_c *MockCache_Del_Call) Run(run func(ctx context.Context, key ...string)) *MockCache_Del_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []string
+		var variadicArgs []string
+		if len(args) > 1 {
+			variadicArgs = args[1].([]string)
+		}
+		arg1 = variadicArgs
+		run(
+			arg0,
+			arg1...,
+		)
+	})
+	return _c
+}
+
+func (_c *MockCache_Del_Call) Return(intCmd *redis.IntCmd) *MockCache_Del_Call {
+	_c.Call.Return(intCmd)
+	return _c
+}
+
+func (_c *MockCache_Del_Call) RunAndReturn(run func(ctx context.Context, key ...string) *redis.IntCmd) *MockCache_Del_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Get provides a mock function for the type MockCache
 func (_mock *MockCache) Get(ctx context.Context, key string) *redis.StringCmd {
 	ret := _mock.Called(ctx, key)

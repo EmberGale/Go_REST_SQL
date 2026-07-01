@@ -29,10 +29,13 @@ func (p *PaymentServiceImpl) WarmCache(ctx context.Context) error {
 
 func (p *PaymentServiceImpl) GetWithSingleFlight(ctx context.Context, paymentID int64) (*model.Payment, error) {
 	res, err, _ := p.sfGroup.Do(fmt.Sprintf("payment_id:%d", paymentID), func() (interface{}, error) {
-		return p.GetPaymentById(paymentID)
+		return p.loadPaymentById(ctx, paymentID)
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return res.(*model.Payment), err
+	return res.(*model.Payment), nil
 }
 
 func (p *PaymentServiceImpl) invalidateCacheById(ctx context.Context, paymentID int64) {

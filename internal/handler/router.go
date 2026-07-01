@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"GoRestSQL/pkg/metrics"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
@@ -36,6 +38,8 @@ func NewRouter(handler *PaymentHandler, logger *zap.SugaredLogger) http.Handler 
 		}
 		return http.HandlerFunc(fn)
 	})
+
+	r.Handle("/metrics", metrics.Handler())
 
 	// Регистрируем маршруты с chi
 	r.Route("/payment", func(r chi.Router) {

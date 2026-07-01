@@ -10,14 +10,14 @@ import (
 type Cache interface {
 	Get(ctx context.Context, key string) *redis.StringCmd
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
-	Del(ctx context.Context, key string) *redis.IntCmd
+	Del(ctx context.Context, key ...string) *redis.IntCmd
 }
 
 // FakeCache is a fake implementation of the Cache interface for testing
 type FakeCache struct {
 	GetFunc func(ctx context.Context, key string) *redis.StringCmd
 	SetFunc func(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
-	DelFunc func(ctx context.Context, key string) *redis.IntCmd
+	DelFunc func(ctx context.Context, key ...string) *redis.IntCmd
 }
 
 func (f *FakeCache) Get(ctx context.Context, key string) *redis.StringCmd {
@@ -28,6 +28,6 @@ func (f *FakeCache) Set(ctx context.Context, key string, value interface{}, expi
 	return f.SetFunc(ctx, key, value, expiration)
 }
 
-func (f *FakeCache) Del(ctx context.Context, key string) *redis.IntCmd {
-	return f.DelFunc(ctx, key)
+func (f *FakeCache) Del(ctx context.Context, key ...string) *redis.IntCmd {
+	return f.DelFunc(ctx, key...)
 }

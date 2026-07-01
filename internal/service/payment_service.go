@@ -69,19 +69,24 @@ func (p *PaymentServiceImpl) GetPaymentById(paymentID int64) (*model.Payment, er
 		p.log.Info("Get by id:%d -> from cache", paymentID)
 		return &payment, nil
 	}
-	// Cache miss\
-	// Singleglight
-	payment, err := p.GetWithSingleFlight(p.ctx, paymentID)
-	//payment, err := p.repo.GetById(p.ctx, paymentID)
 
-	// Store in cache
+	return p.GetWithSingleFlight(p.ctx, paymentID)
+}
+
+func (p *PaymentServiceImpl) loadPaymentById(ctx context.Context, paymentID int64) (*model.Payment, error) {
+	payment, err := p.repo.GetById(ctx, paymentID)
+	if err != nil {
+		return nil, err
+	}
+
 	bytes, _ := json.Marshal(payment)
+	key := fmt.Sprintf("payment_id:%d", paymentID)
 	p.log.Info("Get by id:%d -> save to cache", paymentID)
-	cacheErr := p.cache.Set(p.ctx, key, bytes, 1*time.Minute).Err()
+	cacheErr := p.cache.Set(ctx, key, bytes, 1*time.Minute).Err()
 	if cacheErr != nil {
 		p.log.Info("Get by id:%d -> failed to cache: %s", paymentID, cacheErr)
 	}
-	return payment, err
+	return payment, nil
 }
 
 func (p *PaymentServiceImpl) GetPaymentByPerson(person string) ([]model.Payment, error) {
